@@ -30,6 +30,10 @@ inputs:
     required: false
     type: boolean
     default: false
+outputs:
+  base64-subjects:
+    description: The base64-encoded subjects for the attestation
+    value: ${{ steps.base64-subjects.outputs.handle }}
 
 runs:
   using: composite
@@ -85,7 +89,7 @@ runs:
         diff -r zip-generated zip-org
       shell: bash
 
-    - name: Generate attestation for the plugin
+    - name: Generate GitHub build provenance attestation
       if: ${{ inputs.dry-run == 'false' }}
       uses: actions/attest-build-provenance@v1
       with:
@@ -99,3 +103,21 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+
+    - name: Output the subjects as a file
+      run: | #shell
+        sha256sum "${{ inputs.plugin }}.zip" | base64 -w0 > base64-subjects.txt
+      shell: bash
+
+    - name: Output the hashes as a file
+      uses: slsa-framework/slsa-github-generator/actions/generator/generic/create-base64-subjects-from-file@v2.0.0
+      id: base64-subjects
+      with:
+        path: base64-subjects.txt
+
+    - name: Upload the WordPress.org zip file as an artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.plugin }}.zip
+        if-no-files-found: error
